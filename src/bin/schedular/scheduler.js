@@ -7,6 +7,7 @@ import cronRegistry from "../../scheduler/registry.js";
 // ── Import jobs ──────────────────────────────────────────────────────────────
 import fileJob from "../../domain/file/jobs/file.job.js";
 import digestJob from "../../domain/digest/jobs/digest.job.js";
+import analysisJob from "../../domain/analysis/jobs/analysis.job.js";
 
 let isShuttingDown = false;
 
@@ -15,10 +16,14 @@ const start = async () => {
     await MongoDB.connect();
 
     cronRegistry.register(fileJob.cleanupOrphanUploads);
-    cronRegistry.register(digestJob.global4h);
-    cronRegistry.register(digestJob.vietnam4h);
+    cronRegistry.register(digestJob.globalHourly);
+    cronRegistry.register(digestJob.vietnamHourly);
     cronRegistry.register(digestJob.globalDaily);
     cronRegistry.register(digestJob.globalWeekly);
+    
+    // Market Analysis & Alerts
+    cronRegistry.register(analysisJob.marketAnalysis4h);
+    cronRegistry.register(analysisJob.marketAlert30m);
 
     logger.info("scheduler worker is running");
   } catch (error) {

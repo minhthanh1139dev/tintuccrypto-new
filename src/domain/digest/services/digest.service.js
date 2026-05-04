@@ -24,6 +24,8 @@ function buildSlug(type, region, periodStart) {
   const d = periodStart;
   const base = `${type}-${region}`;
   switch (type) {
+    case "1h":
+      return `${base}-${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}-${pad(d.getUTCHours())}`;
     case "4h":
       return `${base}-${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}-${pad(d.getUTCHours())}`;
     case "daily":
@@ -50,6 +52,11 @@ function calculatePeriod(type) {
   let periodStart, periodEnd;
 
   switch (type) {
+    case "1h": {
+      periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
+      periodEnd = new Date(periodStart.getTime() + 1 * 60 * 60 * 1000 - 1);
+      break;
+    }
     case "4h": {
       const slot = Math.floor(now.getUTCHours() / 4) * 4;
       periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), slot));
@@ -80,47 +87,28 @@ function calculatePeriod(type) {
 
 // ── AI prompt ────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a professional crypto market analyst. Your job is to scan the latest cryptocurrency and blockchain news, then produce a structured JSON digest.
+const SYSTEM_PROMPT = `You are a Crypto News Aggregator. Your task is to scan recent news and provide a structured list of events. 
 
 RULES:
-- Focus on REAL, VERIFIED news only. Never fabricate events.
-- Each news item must include source attribution.
-- Sentiment must be data-driven, not speculative.
-- Impact score 1-10 based on market significance.
-- Always respond with valid JSON matching the schema below. No markdown, no extra text.
+1. Focus on aggregation: Get the title, source, and key entities (coins/projects).
+2. Categorization: Identify if the news is about Regulation, DeFi, Price Action, Security, etc.
+3. Source attribution: Ensure each item has a clear source name and URL.
+4. Language: Always provide Vietnamese translations for titles and summaries.
+5. No Analysis: Do not provide personal opinions or complex market predictions.
 
 RESPONSE SCHEMA:
 {
-  "headline": "One-sentence summary of the period",
-  "headline_vi": "Vietnamese translation",
-  "overview": "3-5 sentence overview",
-  "overview_vi": "Vietnamese translation",
-  "key_themes": ["theme1", "theme2"],
-  "top_narratives": ["narrative1", "narrative2"],
-  "market_snapshot": {
-    "market_trend": "bullish|bearish|sideways",
-    "btc_dominance": 58.5,
-    "total_market_cap": "$2.1T"
-  },
+  "headline_vi": "Tóm tắt ngắn gọn tình hình 1 câu (ví dụ: 'Thị trường biến động nhẹ, tập trung vào tin tức ETF')",
   "news_items": [
     {
-      "title": "English title",
-      "title_vi": "Vietnamese title",
-      "summary": "2-4 sentence summary",
-      "summary_vi": "Vietnamese summary",
-      "source_url": "https://...",
+      "title": "Original Title",
+      "title_vi": "Tiêu đề tiếng Việt",
+      "summary_vi": "Mô tả ngắn 1-2 câu",
       "source_name": "CoinDesk",
-      "source_type": "web",
-      "region": "global|vietnam|asia",
-      "category": "market|macro|regulation|defi|exchange|project|nft_gaming|vietnam",
-      "tags": ["BTC", "ETH"],
-      "coins": ["BTC"],
-      "narratives": ["AI coins"],
-      "sentiment": "bullish|bearish|neutral",
-      "impact": "high|medium|low",
-      "impact_score": 8,
-      "credibility": "high|medium|low",
-      "is_featured": false
+      "source_url": "https://...",
+      "category": "market|regulation|tech|security",
+      "coins": ["BTC", "ETH"],
+      "impact": "high|medium|low"
     }
   ]
 }`;
@@ -253,10 +241,10 @@ class DigestService {
 
     const marketSnapshot = parsed.market_snapshot
       ? {
-          marketTrend: parsed.market_snapshot.market_trend,
-          btcDominance: parsed.market_snapshot.btc_dominance,
-          totalMarketCap: parsed.market_snapshot.total_market_cap,
-        }
+        marketTrend: parsed.market_snapshot.market_trend,
+        btcDominance: parsed.market_snapshot.btc_dominance,
+        totalMarketCap: parsed.market_snapshot.total_market_cap,
+      }
       : undefined;
 
     const digest = await digestRepository.create({
@@ -265,10 +253,10 @@ class DigestService {
       periodStart,
       periodEnd,
       region,
-      headline: parsed.headline,
+      headline: parsed.headline || parsed.headline_vi,
       headlineVi: parsed.headline_vi,
-      overview: parsed.overview,
-      overviewVi: parsed.overview_vi,
+      overview: parsed.overview || "News aggregation for the period.",
+      overviewVi: parsed.overview_vi || "Tổng hợp tin tức trong giai đoạn này.",
       keyThemes: parsed.key_themes || [],
       topNarratives: parsed.top_narratives || [],
       stats,

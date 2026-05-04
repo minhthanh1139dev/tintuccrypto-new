@@ -3,21 +3,21 @@
 import digestService from "../services/digest.service.js";
 
 class DigestJob {
-  /** Global 4h digest — runs at minute 0 every 4 hours (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC) */
-  global4h = {
-    name: "4h Digest (Global)",
-    schedule: "0 */4 * * *",
+  /** Global hourly digest — runs at minute 0 every hour */
+  globalHourly = {
+    name: "Hourly Digest (Global)",
+    schedule: "0 * * * *",
     action: async () => {
-      await digestService.generate({ type: "4h", region: "global", provider: "grok", model: "grok-3" });
+      await digestService.generate({ type: "1h", region: "global", provider: "gemini", model: "gemini-1.5-flash" });
     },
   };
 
-  /** Vietnam 4h digest — runs 5 min after global to avoid overlap */
-  vietnam4h = {
-    name: "4h Digest (Vietnam)",
-    schedule: "5 */4 * * *",
+  /** Vietnam hourly digest — runs 5 min after global */
+  vietnamHourly = {
+    name: "Hourly Digest (Vietnam)",
+    schedule: "5 * * * *",
     action: async () => {
-      await digestService.generate({ type: "4h", region: "vietnam", provider: "grok", model: "grok-3" });
+      await digestService.generate({ type: "1h", region: "vietnam", provider: "gemini", model: "gemini-1.5-flash" });
     },
   };
 

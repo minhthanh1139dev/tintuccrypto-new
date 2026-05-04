@@ -1,6 +1,7 @@
 "use strict";
 
 import axios from "axios";
+import { GoogleGenAI } from "@google/genai";
 import logger from "./logger.js";
 import config from "../../config/app.config.js";
 import ApiCallLog from "../../models/apiCallLog.model.js";
@@ -12,20 +13,23 @@ const PRICING = {
   // xAI / Grok
   "grok-3":                       { input: 3.00,  output: 15.00 },
   "grok-3-mini":                  { input: 0.30,  output: 0.50  },
-  // OpenAI
-  "gpt-4o":                       { input: 2.50,  output: 10.00 },
-  "gpt-4o-mini":                  { input: 0.15,  output: 0.60  },
-  "gpt-4.1":                      { input: 2.00,  output: 8.00  },
-  "gpt-4.1-mini":                 { input: 0.40,  output: 1.60  },
-  "gpt-4.1-nano":                 { input: 0.10,  output: 0.40  },
-  // Anthropic
-  "claude-sonnet-4-20250514":     { input: 3.00,  output: 15.00 },
-  "claude-haiku-4-20250514":      { input: 0.80,  output: 4.00  },
-  // Perplexity
-  "sonar":                        { input: 1.00,  output: 1.00  },
-  "sonar-pro":                    { input: 3.00,  output: 15.00 },
-  "sonar-reasoning":              { input: 1.00,  output: 5.00  },
-  "sonar-reasoning-pro":          { input: 2.00,  output: 8.00  },
+  // Google
+  "gemini-1.5-flash":             { input: 0.075, output: 0.30  },
+  "gemini-1.5-pro":               { input: 3.50,  output: 10.50 },
+  // // OpenAI
+  // "gpt-4o":                       { input: 2.50,  output: 10.00 },
+  // "gpt-4o-mini":                  { input: 0.15,  output: 0.60  },
+  // "gpt-4.1":                      { input: 2.00,  output: 8.00  },
+  // "gpt-4.1-mini":                 { input: 0.40,  output: 1.60  },
+  // "gpt-4.1-nano":                 { input: 0.10,  output: 0.40  },
+  // // Anthropic
+  // "claude-sonnet-4-20250514":     { input: 3.00,  output: 15.00 },
+  // "claude-haiku-4-20250514":      { input: 0.80,  output: 4.00  },
+  // // Perplexity
+  // "sonar":                        { input: 1.00,  output: 1.00  },
+  // "sonar-pro":                    { input: 3.00,  output: 15.00 },
+  // "sonar-reasoning":              { input: 1.00,  output: 5.00  },
+  // "sonar-reasoning-pro":          { input: 2.00,  output: 8.00  },
 };
 
 // ── Retry helpers ────────────────────────────────────────────────────────────
@@ -98,11 +102,43 @@ async function anthropicAdapter(cfg, p) {
   };
 }
 
+async function geminiAdapter(cfg, p) {
+  const genAI = new GoogleGenAI(cfg.apiKey);
+  const model = genAI.getGenerativeModel({ model: p.model });
+
+  const contents = p.messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const response = await model.generateContent({
+    contents,
+    generationConfig: {
+      temperature: p.temperature,
+      maxOutputTokens: p.maxTokens,
+      responseMimeType: p.extra?.response_format?.type === "json_object" ? "application/json" : "text/plain",
+    },
+  });
+
+  const res = await response.response;
+  const text = res.text();
+
+  return {
+    content: text,
+    tokensInput: res.usageMetadata?.promptTokenCount || 0,
+    tokensOutput: res.usageMetadata?.candidatesTokenCount || 0,
+    searchCalls: 0,
+    citations: [],
+    raw: res,
+  };
+}
+
 const adapters = {
   grok: openaiCompatible,
-  openai: openaiCompatible,
-  perplexity: openaiCompatible,
-  anthropic: anthropicAdapter,
+  gemini: geminiAdapter,
+  // openai: openaiCompatible,
+  // perplexity: openaiCompatible,
+  // anthropic: anthropicAdapter,
 };
 
 // ── Cost calculation ─────────────────────────────────────────────────────────

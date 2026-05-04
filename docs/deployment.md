@@ -10,5 +10,5 @@ To deploy this API in a production environment:
 3. If deploying manually on a VPS (PM2):
    - Navigate to the directory
    - `npm install --production`
-   - Start with PM2: `pm2 start src/bin/api/api.js --name "base-backend"`
+   - Start with PM2: `pm2 start src/bin/api/api.js --name "tintuccrypto-api"`
 4. Use Nginx or another reverse proxy in front of this API to manage SSL and map traffic to `PORT`.
