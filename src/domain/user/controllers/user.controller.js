@@ -1,5 +1,5 @@
 import userService from "../services/user.service.js";
-import response from "../../../shared/utils/response.js";
+import { OK, CREATED } from "../../../shared/utils/response.js";
 import { AppError } from "../../../shared/middlewares/errorHandler.middleware.js";
 
 class UserController {
@@ -10,29 +10,32 @@ class UserController {
       throw new AppError("Failed to register", 400, "BAD_REQUEST");
     }
 
-    return response.success(res, { user: result.user }, 201, "Register successfully");
+    return new CREATED({ data: { user: result.user }, message: "Register successfully" }).send(res);
   }
 
   async login(req, res) {
     const result = await userService.login(req.body);
 
-    return response.success(res, {
+    return new OK({
+      data: {
         user: result.user,
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-    }, 200, "Login successfully");
+      },
+      message: "Login successfully"
+    }).send(res);
   }
 
   async refresh(req, res) {
     const { refreshToken } = req.body;
     const tokens = await userService.refresh(refreshToken);
 
-    return response.success(res, tokens, 200, "Token refreshed");
+    return new OK({ data: tokens, message: "Token refreshed" }).send(res);
   }
 
   async logout(req, res) {
     // Stateless JWT — client chỉ cần xoá token ở phía mình
-    return response.success(res, null, 200, "Logout successfully");
+    return new OK({ message: "Logout successfully" }).send(res);
   }
 }
 

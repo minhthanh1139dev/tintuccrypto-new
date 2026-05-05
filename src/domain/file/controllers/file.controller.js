@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { pipeline } from "stream/promises";
-import response from "../../../shared/utils/response.js";
+import { OK, CREATED } from "../../../shared/utils/response.js";
 import { AppError } from "../../../shared/middlewares/errorHandler.middleware.js";
 import fileService from "../services/file.service.js";
 import { FILE_CODES } from "../constants/file.codes.js";
@@ -13,17 +13,24 @@ class FileController {
     const { page, limit } = req.query; // get from req.query to pass paginator
     const { items, total, page: currentPage, limit: currentLimit } = await fileService.getAllFiles({ paginator: { page, limit } });
 
-    return response.paginate(res, items.map((fileDoc) => ({
-      id: fileDoc._id,
-      originalName: fileDoc.originalName,
-      storageKey: fileDoc.storageKey,
-      url: `/api/v1/files/${fileDoc._id}`,
-      mime: fileDoc.mime,
-      size: fileDoc.size,
-      kind: fileDoc.kind,
-      isPublic: fileDoc.isPublic,
-      createdAt: fileDoc.createdAt,
-    })), total, currentPage, currentLimit, FILE_CODES.SUCCESS);
+    return new OK({
+      data: {
+        items: items.map((fileDoc) => ({
+          id: fileDoc._id,
+          originalName: fileDoc.originalName,
+          storageKey: fileDoc.storageKey,
+          url: `/api/v1/files/${fileDoc._id}`,
+          mime: fileDoc.mime,
+          size: fileDoc.size,
+          kind: fileDoc.kind,
+          isPublic: fileDoc.isPublic,
+          createdAt: fileDoc.createdAt,
+        })),
+        total,
+        page: currentPage,
+        totalPages: Math.ceil(total / currentLimit)
+      }
+    }).send(res);
   }
 
   async _getFileByKind(req, res, expectedKind) {
@@ -61,22 +68,25 @@ class FileController {
   async uploadFile(req, res) {
     const fileDoc = await fileService.uploadFile(req.file);
 
-    return response.success(res, {
-      id: fileDoc._id,
-      originalName: fileDoc.originalName,
-      storageKey: fileDoc.storageKey,
-      url: `/api/v1/files/${fileDoc._id}`,
-      mime: fileDoc.mime,
-      size: fileDoc.size,
-      kind: fileDoc.kind,
-      isPublic: fileDoc.isPublic,
-      createdAt: fileDoc.createdAt,
-    }, 201, "File uploaded successfully");
+    return new CREATED({
+      data: {
+        id: fileDoc._id,
+        originalName: fileDoc.originalName,
+        storageKey: fileDoc.storageKey,
+        url: `/api/v1/files/${fileDoc._id}`,
+        mime: fileDoc.mime,
+        size: fileDoc.size,
+        kind: fileDoc.kind,
+        isPublic: fileDoc.isPublic,
+        createdAt: fileDoc.createdAt,
+      },
+      message: "File uploaded successfully"
+    }).send(res);
   }
 
   async deleteFile(req, res) {
     await fileService.deleteFile(req.params.id);
-    return response.success(res, null, 200, "File deleted successfully");
+    return new OK({ message: "File deleted successfully" }).send(res);
   }
 }
 

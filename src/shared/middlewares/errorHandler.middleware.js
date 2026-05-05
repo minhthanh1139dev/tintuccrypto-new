@@ -1,50 +1,41 @@
 import logger from "../utils/logger.js";
+import { ErrorResponse, BAD_REQUEST, INTERNAL_SERVER_ERROR } from "../utils/response.js";
 
 export class AppError extends Error {
-    constructor(errorData, statusCode = 400, fallbackCode = undefined) {
-        if (typeof errorData === 'object' && errorData !== null && errorData.code) {
-            super(errorData.message)
-            this.statusCode = statusCode
-            this.code = errorData.code
-        } else {
-            super(errorData)
-            this.statusCode = statusCode
-            this.code = fallbackCode
-        }
-    }
+  constructor(message, statusCode = 400, errorCode) {
+    super(message);
+    this.statusCode = statusCode;
+    this.errorCode = errorCode;
+  }
 }
 
 export const errorHandler = (err, req, res, next) => {
-    // Log error
-    logger.error({
-        message: err.message,
-        stack: err.stack,
-        path: req.path,
-        method: req.method
-    })
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
 
-    // AppError — lỗi có chủ ý
-    if (err instanceof AppError) {
-        return res.status(err.statusCode).json({
-            success: false,
-            code: err.code || "99999",
-            message: err.message
-        })
-    }
+  // New OOP ErrorResponse (from response.js)
+  if (err instanceof ErrorResponse) {
+    return err.send(res);
+  }
 
-    // Mongoose validation error
-    if (err.name === 'ValidationError') {
-        return res.status(400).json({
-            success: false,
-            code: '40001', // Example generic validation code
-            message: err.message
-        })
-    }
+  // Legacy AppError
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      status: "error",
+      code: err.statusCode,
+      error: { code: err.errorCode, message: err.message },
+    });
+  }
 
-    // Unexpected error
-    return res.status(500).json({
-        success: false,
-        code: '50000', // Example generic internal code
-        message: 'Lỗi server'
-    })
-}
+  // Mongoose validation error
+  if (err.name === "ValidationError") {
+    return new BAD_REQUEST({ message: err.message, errorCode: "VALIDATION_ERROR" }).send(res);
+  }
+
+  // Unexpected error
+  return new INTERNAL_SERVER_ERROR({ message: "Lỗi server" }).send(res);
+};
