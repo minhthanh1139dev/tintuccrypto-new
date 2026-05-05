@@ -12,6 +12,10 @@ const config = {
     port: process.env.PORT || 3000,
     env: process.env.NODE_ENV || "development",
     key: process.env.APP_KEY || DEFAULT_APP_KEY,
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN,
+      channelId: process.env.TELEGRAM_CHANNEL_ID,
+    },
   },
   mongodb: {
     uri: process.env.MONGODB_URI || "mongodb://localhost:27017/base-backend",
@@ -34,18 +38,22 @@ const config = {
         apiKey: process.env.GROK_API_KEY,
         baseUrl: process.env.GROK_BASE_URL || "https://api.x.ai/v1",
       },
-      openai: {
-        apiKey: process.env.OPENAI_API_KEY,
-        baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      gemini: {
+        apiKey: process.env.GEMINI_API_KEY,
+        model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
       },
-      anthropic: {
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
-      },
-      perplexity: {
-        apiKey: process.env.PERPLEXITY_API_KEY,
-        baseUrl: process.env.PERPLEXITY_BASE_URL || "https://api.perplexity.ai",
-      },
+      // openai: {
+      //   apiKey: process.env.OPENAI_API_KEY,
+      //   baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      // },
+      // anthropic: {
+      //   apiKey: process.env.ANTHROPIC_API_KEY,
+      //   baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
+      // },
+      // perplexity: {
+      //   apiKey: process.env.PERPLEXITY_API_KEY,
+      //   baseUrl: process.env.PERPLEXITY_BASE_URL || "https://api.perplexity.ai",
+      // },
     },
     defaults: {
       temperature: 0.7,

@@ -11,7 +11,7 @@ description: Project conventions, architecture rules, and layer-specific guideli
 - **Framework:** Express 5
 - **Database:** MongoDB via Mongoose 9
 - **Validation:** Joi
-- **Logging:** Pino (`src/utils/logger.js`)
+- **Logging:** Pino (`src/shared/utils/logger.js`)
 - **Auth:** JWT (access + refresh tokens) with bcrypt password hashing
 
 ---
@@ -34,8 +34,8 @@ Router → Controller → Service → Repository → Model
 | **Controller** | Its own Service(s), `utils/response.js` only |
 | **Router** | Controller, Middlewares, Validation schemas, `express`, `express-async-handler` |
 | **Middleware** | `utils/*`, `config/*` — NEVER import Controller/Service/Repository/Model |
-| **Utils** | `config/config.js` only (or nothing). Utils are stateless. |
-| **Infra** | `mongoose`, `config/config.js`, `utils/logger.js` |
+| **Utils** | `config/app.config.js` only (or nothing). Utils are stateless. |
+| **Infra** | `mongoose`, `config/app.config.js`, `utils/logger.js` |
 | **Jobs** | Service(s), `utils/logger.js` |
 
 ### What is FORBIDDEN:
@@ -61,7 +61,7 @@ Router → Controller → Service → Repository → Model
   ```
 
 ### 3.2 Response Handling
-- **ALWAYS** use custom response classes from `src/utils/response.js`:
+- **ALWAYS** use custom response classes from `src/shared/utils/response.js`:
   - Success: `new OK({ message, data }).send(res)`, `new CREATED({ message, data }).send(res)`
   - Error: `throw new BAD_REQUEST({ message })`, `throw new NOT_FOUND({ message })`, etc.
 - **NEVER** use `res.status(xxx).json(...)` directly
@@ -77,7 +77,7 @@ Router → Controller → Service → Repository → Model
 - **ALWAYS** use `async/await`, never raw Promises with `.then()/.catch()` chains
 
 ### 3.5 Logging
-- **ALWAYS** use `logger` from `src/utils/logger.js` (Pino)
+- **ALWAYS** use `logger` from `src/shared/utils/logger.js` (Pino)
 - **NEVER** use `console.log`, `console.error`, etc. (exception: `bin/` entrypoints before logger is available)
 - Use structured logging: `logger.info({ key: value }, "message")`
 
@@ -137,7 +137,7 @@ export default X;
 "use strict"
 
 import X from "../models/x.model.js";
-import buildFindQueryOptions from "../utils/queryOptions.js";
+import buildFindQueryOptions from "../shared/utils/queryOptions.js";
 
 class XRepository {
   async create(data) {
@@ -306,7 +306,7 @@ export default router;
 
 ### 4.9 Config vs Constants
 
-- `src/config/config.js` → Values that **change per environment** (read from `.env`)
+- `src/config/app.config.js` → Values that **change per environment** (read from `.env`)
 - `src/constants/app.constants.js` → Values **fixed by application logic** (hardcoded)
 
 ### 4.10 Jobs (`src/jobs/`)

@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 import logger from "../../shared/utils/logger.js";
 import MongoDB from "../../infra/mongodb.js";
@@ -39,7 +39,10 @@ const shutdown = async () => {
     logger.info("scheduler shutdown complete");
     process.exit(0);
   } catch (error) {
-    logger.error({ error: error.message }, "failed to shutdown scheduler worker");
+    logger.error(
+      { error: error.message },
+      "failed to shutdown scheduler worker",
+    );
     process.exit(1);
   }
 };

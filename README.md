@@ -2,6 +2,7 @@
 
 Template backend tối giản cho solo dev/team nhỏ:
 - User/Auth với RBAC (`user`, `admin`)
+- **AI-Powered Digest**: Tự động tạo bản tin thị trường (4h, Daily, Weekly) sử dụng Grok, GPT-4, Claude.
 - Upload file tổng quát (image được convert sang WebP)
 - Rate limit + anti-bruteforce cho auth/upload
 - Config validation ngay lúc boot
@@ -20,6 +21,12 @@ Template backend tối giản cho solo dev/team nhỏ:
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
+
+### News & Digests
+- `GET /api/v1/news`
+- `GET /api/v1/digests`
+- `GET /api/v1/digests/:id`
+- `GET /api/v1/digests/slug/:slug`
 
 ### Admin Files (RBAC: admin)
 - `POST /api/v1/admin/files` (form-data key: `file`)
@@ -77,9 +84,5 @@ npm run start:scheduler
 ## Infra structure
 
 - DB/queue connectors nằm trong `src/infra/`.
-- Hiện có `src/infra/database/mongodb.js` và placeholder `src/infra/queue/index.js` để mở rộng Redis/RabbitMQ sau.
+- Hiện có `src/infra/mongodb.js` và `src/infra/redis.js`.
 
-## Manual migration seeds
-
-- Script seed đơn lẻ nằm trong `migrations/` để chạy thủ công bằng `mongosh`.
-- Xem chi tiết tại `migrations/README.md`.

@@ -14,7 +14,7 @@ Register a new user account.
   - `username` (string, required): Alphanumeric string, min 3 characters, max 30 characters.
   - `password` (string, required): Min 6 characters.
 - **Response:**
-  - `201 Created`: `{ "success": true, "message": "Registered successfully", "data": { "user": { ... } } }`
+  - `201 Created`: `{ "success": true, "code": "00000", "message": "Registered successfully", "data": { "user": { ... } } }`
   - `409 Conflict`: If username already exists.
 
 ### `POST /auth/login`
@@ -23,7 +23,7 @@ Login and retrieve tokens.
   - `username` (string, required)
   - `password` (string, required)
 - **Response:**
-  - `200 OK`: `{ "success": true, "message": "Login successfully", "data": { "user": { ... }, "accessToken": "...", "refreshToken": "..." } }`
+  - `200 OK`: `{ "success": true, "code": "00000", "message": "Login successfully", "data": { "user": { ... }, "accessToken": "...", "refreshToken": "..." } }`
   - `401 Unauthorized`: Invalid credentials.
 
 ### `GET /auth/google`
@@ -88,6 +88,43 @@ Fallback generic download for any file type.
 - **Path Parameters:**
   - `id` (string, required): File ID
 - **Response:** Binary stream of the file.
+
+---
+
+## 5. News (`/news`)
+Endpoints for viewing aggregated crypto news.
+
+### `GET /news`
+List all news items.
+- **Query Parameters:**
+    - `page` (number): Default: 1.
+    - `limit` (number): Default: 20.
+    - `region` (string): `global|vietnam`.
+    - `category` (string): Filter by category.
+    - `sentiment` (string): `bullish|bearish|neutral`.
+- **Response:**
+    - `200 OK`: Standard paginated response.
+
+---
+
+## 6. Digests (`/digests`)
+Endpoints for viewing AI-generated market digests.
+
+### `GET /digests`
+List all generated digests.
+- **Query Parameters:**
+    - `page` (number): Default: 1.
+    - `limit` (number): Default: 10.
+    - `type` (string): `4h|daily|weekly|monthly`.
+    - `region` (string): `global|vietnam`.
+- **Response:**
+    - `200 OK`: Standard paginated response.
+
+### `GET /digests/:id`
+Get a specific digest by ID.
+
+### `GET /digests/slug/:slug`
+Get a specific digest by its slug (e.g., `daily-global-2024-05-14`).
 
 ---
 
