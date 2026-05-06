@@ -1,11 +1,3 @@
-"use strict";
-
-import aiService from "../../../shared/services/ai.service.js";
-import binanceService from "../../../shared/services/binance.service.js";
-import telegramService from "../../../shared/services/telegram.service.js";
-import cryptoAnalysisRepository from "../repositories/analysis.repository.js";
-import logger from "../../../shared/utils/logger.js";
-
 // ── Prompt Helpers ───────────────────────────────────────────────────────────
 
 function getFundingSignal(rate) {
@@ -166,131 +158,203 @@ OUTPUT FORMAT (CHỈ TRẢ VỀ JSON THUẦN - KHÔNG MARKDOWN)
 }
 `;
 }
-// ── Sanitize — strip hallucinated URLs from Gemini output ────────────────────
 
-/**
- * LLMs tend to hallucinate URLs. This function strips all URL fields
- * from the analysis data to prevent fake links from reaching users.
- * @param {Object} data - Raw analysis data from Gemini
- */
-function sanitizeAnalysisData(data) {
-  // We no longer strip URLs as the user's prompt now strictly requires real ones.
-  // We can add validation logic here later if needed.
-}
+  async fetchMarketData() {
+    logger.info("Fetching Binance market data...");
 
-// ── Service ──────────────────────────────────────────────────────────────────
-
-class CryptoAnalysisService {
-  /**
-   * Perform hourly crypto market analysis using Gemini AI + Binance data
-   * Fetches data, generates analysis using AI, saves to DB, and notifies Telegram.
-   */
-  async performHourlyAnalysis() {
-    logger.info("Starting hourly crypto analysis via CronJob...");
-
-    // 1. Fetch real-time market data from Binance
-    const marketData = await binanceService.fetchMarketData();
-
-    // 2. Build the prompt
-    const prompt = buildCryptoAnalysisPrompt(marketData);
-
-    // 3. Send to AI for analysis
-    const analysisData = await aiService.generateJSON(prompt);
-
-    // 4. Sanitize (optional logic)
-    sanitizeAnalysisData(analysisData);
-
-    // 5. Attach market snapshot
-    analysisData.market_snapshot = {
-      btc: { ...marketData.BTC },
-      eth: { ...marketData.ETH },
-      snapshot_at: new Date().toISOString(),
-    };
-
-    // 6. Save and Notify
-    return await this.saveAndNotify(analysisData);
-  }
-
-  /**
-   * Receive pre-generated analysis data from external tools, save and notify.
-   * Used when we want both DB storage and Telegram notification.
-   * @param {Object} analysisData - The complete analysis JSON
-   */
-  async saveAndNotify(analysisData) {
-    // 1. Save to MongoDB
-    const result = await this.createAnalysisRecord(analysisData);
-
-    // 2. Send to Telegram
     try {
-      await telegramService.sendAnalysis(result);
-    } catch (telegramError) {
-      logger.error(
-        { error: telegramError.message },
-        "Failed to send Telegram message",
+      const [tickerRes, btcFundingRes, ethFundingRes, btcOIRes, ethOIRes, btcLSRes, ethLSRes] =
+        await Promise.all([
+          axios.get(`${this.baseUrl}/ticker/24hr?symbols=["BTCUSDT","ETHUSDT"]`),
+          axios.get(`${this.fapiUrl}/fundingRate?symbol=BTCUSDT&limit=1`),
+          axios.get(`${this.fapiUrl}/fundingRate?symbol=ETHUSDT&limit=1`),
+          axios.get(`${this.fapiUrl}/openInterest?symbol=BTCUSDT`),
+          axios.get(`${this.fapiUrl}/openInterest?symbol=ETHUSDT`),
+          axios.get(`${this.futuresDataUrl}/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=1`),
+          axios.get(`${this.futuresDataUrl}/globalLongShortAccountRatio?symbol=ETHUSDT&period=1h&limit=1`),
+        ]);
+
+      const tickers = tickerRes.data;
+      const btcFunding = btcFundingRes.data;
+      const ethFunding = ethFundingRes.data;
+      const btcOI = btcOIRes.data;
+      const ethOI = ethOIRes.data;
+      const btcLS = btcLSRes.data;
+      const ethLS = ethLSRes.data;
+
+      const btcTicker = tickers.find((t) => t.symbol === "BTCUSDT");
+      const ethTicker = tickers.find((t) => t.symbol === "ETHUSDT");
+
+      const result = {
+        BTC: {
+          price: btcTicker.lastPrice,
+          priceChangePercent: btcTicker.priceChangePercent,
+          quoteVolume: btcTicker.quoteVolume,
+          highPrice: btcTicker.highPrice,
+          lowPrice: btcTicker.lowPrice,
+          fundingRate: (parseFloat(btcFunding[0].fundingRate) * 100).toFixed(4),
+          openInterest: btcOI.openInterest,
+          longShortRatio: parseFloat(btcLS[0].longShortRatio).toFixed(2),
+        },
+        ETH: {
+          price: ethTicker.lastPrice,
+          priceChangePercent: ethTicker.priceChangePercent,
+          quoteVolume: ethTicker.quoteVolume,
+          highPrice: ethTicker.highPrice,
+          lowPrice: ethTicker.lowPrice,
+          fundingRate: (parseFloat(ethFunding[0].fundingRate) * 100).toFixed(4),
+          openInterest: ethOI.openInterest,
+          longShortRatio: parseFloat(ethLS[0].longShortRatio).toFixed(2),
+        },
+      };
+
+      logger.info(
+        { btcPrice: result.BTC.price, ethPrice: result.ETH.price },
+        "Binance data fetched"
       );
+
+      return result;
+    } catch (error) {
+      logger.error({ error: error.message }, "Failed to fetch Binance market data");
+      throw error;
     }
-
-    return result;
   }
 
-  /**
-   * Create a new analysis record in the database.
-   * This is a pure "post" action with no notifications or AI calls.
-   * @param {Object} analysisData 
-   */
-  async createAnalysisRecord(analysisData) {
-    logger.info("Creating new crypto analysis record in DB...");
+# Market Analysis Record API
 
-    const result = await cryptoAnalysisRepository.create({
-      ...analysisData,
-      analyzed_at: analysisData.analyzed_at
-        ? new Date(analysisData.analyzed_at)
-        : new Date(),
-    });
+This API allows external tools to save pre-generated crypto market analysis data directly to the database. 
 
-    logger.info(
-      {
-        id: result._id,
-        sentiment: result.overall_sentiment,
-        score: result.sentiment_score,
-      },
-      "Analysis record created successfully",
-    );
+**Note:** This endpoint only performs a database "Create" operation. It does **NOT** call AI and does **NOT** send notifications to Telegram.
 
-    return result;
-  }
+## Endpoint
 
-  /**
-   * Check Binance data for anomalies and send Telegram alerts
-   */
-  async checkMarketAlerts() {
-    const marketData = await binanceService.fetchMarketData();
-    const alertCount = await telegramService.checkAndSendAlerts(marketData);
-    return alertCount;
-  }
+**POST** `/api/v1/analysis`
 
-  async getLatest() {
-    return await cryptoAnalysisRepository.findLatest();
-  }
+## Full JSON Request Body Structure
 
-  async getHistory(filters) {
-    return await cryptoAnalysisRepository.findHistory(filters);
-  }
+Dưới đây là cấu trúc JSON đầy đủ nhất dựa trên Model `CryptoAnalysis`. Bạn có thể bỏ qua các trường không bắt buộc (optional).
 
-  async getSentimentTrend(hours) {
-    return await cryptoAnalysisRepository.getSentimentTrend(hours);
-  }
+```json
+{
+  "analyzed_at": "2026-05-06T12:00:00Z",
+  "period": "4 giờ qua",
+  "overall_sentiment": "bullish",
+  "sentiment_score": 0.85,
+  "confidence": "high",
+  "market_summary": "Thị trường crypto ghi nhận đà tăng trưởng mạnh mẽ của BTC khi vượt ngưỡng 65k. ETH cũng bám sát với mức tăng 3% trong 4 giờ qua...",
+  
+  "news": [
+    {
+      "title": "Bitcoin Hits New Local High",
+      "title_vi": "Bitcoin đạt mức cao nhất cục bộ mới",
+      "summary_vi": "Giá BTC đã vượt qua ngưỡng kháng cự quan trọng nhờ dòng vốn lớn từ các quỹ ETF.",
+      "url": "https://coindesk.com/example-news",
+      "source": "CoinDesk",
+      "published_at": "20 phút trước",
+      "impact": "high",
+      "affected_assets": ["BTC"],
+      "sentiment": "positive",
+      "category": "market"
+    }
+  ],
 
-  async getTrendingAssets(hours) {
-    const data =
-      await cryptoAnalysisRepository.getTrendingAssetsAggregation(hours);
-    return data.map((r) => ({
-      symbol: r._id,
-      total_mentions: r.total_mentions,
-      positive: r.positive,
-      negative: r.negative,
-    }));
+  "key_price_levels": {
+    "btc": {
+      "key_support": ["62000", "60500"],
+      "key_resistance": ["66000", "68200"],
+      "technical_bias": "bullish"
+    },
+    "eth": {
+      "key_support": ["3150", "3000"],
+      "key_resistance": ["3400", "3550"],
+      "technical_bias": "bullish"
+    }
+  },
+
+  "market_data_analysis": {
+    "btc": {
+      "price_trend": "bullish",
+      "funding_interpretation": "Bình thường",
+      "oi_interpretation": "Tăng mạnh (dòng tiền mới)",
+      "ls_interpretation": "Nghiêng về Long"
+    },
+    "eth": {
+      "price_trend": "bullish",
+      "funding_interpretation": "Bình thường",
+      "oi_interpretation": "Ổn định",
+      "ls_interpretation": "Cân bằng"
+    },
+    "correlation_note": "BTC đang dẫn dắt thị trường, ETH đi theo sau với độ trễ nhẹ."
+  },
+
+  "macro_factors": [
+    {
+      "factor": "Lạm phát Mỹ",
+      "status": "Thấp hơn dự kiến",
+      "crypto_impact": "positive",
+      "detail": "Dữ liệu CPI mới giúp tăng kỳ vọng Fed cắt giảm lãi suất sớm hơn."
+    }
+  ],
+
+  "risk_signals": [
+    {
+      "signal": "Nguy cơ Long Squeeze",
+      "severity": "medium",
+      "source": "Dữ liệu phái sinh Binance"
+    }
+  ],
+
+  "opportunities": [
+    {
+      "opportunity": "Mở lệnh Long tại hỗ trợ BTC 62k",
+      "confidence": "medium",
+      "basis": "Hỗ trợ kỹ thuật mạnh kết hợp tin tức vĩ mô tốt."
+    }
+  ],
+
+  "market_snapshot": {
+    "btc": {
+      "price": "65230.50",
+      "priceChangePercent": "4.2",
+      "quoteVolume": "2500000000",
+      "fundingRate": "0.0100",
+      "openInterest": "480000",
+      "longShortRatio": "1.25"
+    },
+    "eth": {
+      "price": "3250.25",
+      "priceChangePercent": "2.8",
+      "quoteVolume": "1200000000",
+      "fundingRate": "0.0080",
+      "openInterest": "2200000",
+      "longShortRatio": "1.15"
+    },
+    "snapshot_at": "2026-05-06T12:00:00Z"
+  },
+
+  "news_count": 1,
+  "data_sources": ["CoinDesk", "Binance"],
+  "note": "Bản tin được generate tự động từ hệ thống Analyst nội bộ."
+}
+```
+
+## Example Usage (cURL)
+
+```bash
+curl -X POST http://localhost:3001/api/v1/analysis \
+-H "Content-Type: application/json" \
+-d '{...full_json_above...}'
+```
+
+## Response
+
+Success (201 Created):
+```json
+{
+  "message": "Analysis record created successfully",
+  "data": {
+    "_id": "663884...",
+    ...
   }
 }
-
-export default new CryptoAnalysisService();
+```

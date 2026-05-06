@@ -30,7 +30,18 @@ class CryptoAnalysisController {
 
   async triggerAnalysis(req, res) {
     const result = await cryptoAnalysisService.performHourlyAnalysis();
-    new CREATED({ message: "Analysis triggered successfully", data: result }).send(res);
+    new CREATED({ message: "Analysis triggered successfully (Cron-style)", data: result }).send(res);
+  }
+
+  async generateAnalysis(req, res) {
+    const analysisData = req.body;
+    
+    if (!analysisData || Object.keys(analysisData).length === 0) {
+      throw new Error("Analysis data is required in request body");
+    }
+
+    const result = await cryptoAnalysisService.createAnalysisRecord(analysisData);
+    new CREATED({ message: "Analysis record created successfully", data: result }).send(res);
   }
 }
 

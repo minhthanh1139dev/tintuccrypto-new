@@ -16,4 +16,6 @@ router.get("/trending-assets", asyncHandler(analysisController.getTrendingAssets
 
 router.post("/trigger", asyncHandler(analysisController.triggerAnalysis));
 
+router.post("/", asyncHandler(analysisController.generateAnalysis));
+
 export default router;
